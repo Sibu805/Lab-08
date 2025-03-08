@@ -1,16 +1,19 @@
 import cv2
 import time
+import matplotlib.pyplot as plt
 
 def image_processing():
 
     img = cv2.imread('variant-9.png')
-    cv2.imshow('variant-9.png', img)
-    temp = img.copy()
-    for i in range(3): 
-        temp = cv2.pyrDown(temp)  
-        cv2.imshow(f'Pyramid Level {i+1}', temp)
+    layer = img.copy()
 
-    cv2.waitKey(0)
+    for i in range(4):
+        plt.subplot(2, 2, i + 1)
+        layer = cv2.pyrDown(layer)
+        plt.imshow(layer)
+        cv2.imshow("str(i)", layer)
+
+        cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 def video_processing():
@@ -18,6 +21,10 @@ def video_processing():
     cap = cv2.VideoCapture(0)  
     down_points = (640, 480) 
     i = 0 
+
+    total_x = 0
+    total_y = 0
+    count = 0
 
     while True:
         ret, frame = cap.read()
@@ -29,17 +36,24 @@ def video_processing():
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
         ret, thresh = cv2.threshold(gray, 110, 255, cv2.THRESH_BINARY_INV)
 
-        contours, hierarch = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        contours, __ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
         if len(contours):
             c = max(contours, key=cv2.contourArea)  
             x, y, w, h = cv2.boundingRect(c) 
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2) 
 
-            if i % 5 == 0:  
-                a = x + (w // 2)  
-                b = y + (h // 2)  
-                print(f'Tracked Coordinate: ({a}, {b})')
+            a, b = x + (w // 2), y + (h // 2)
+            print(f'Tracked Coordinate: ({a}, {b})')
+
+            total_x += a
+            total_y += b
+            count += 1
+
+            if count > 0 and i % 10 == 0:
+                avg_x = total_x // count
+                avg_y = total_y // count
+                print(f'\033[31mAverage Coordinate: ({avg_x}, {avg_y})\033[0m]')
 
         cv2.imshow('Tracking', frame)
 
@@ -51,7 +65,7 @@ def video_processing():
 
     cap.release()
     cv2.destroyAllWindows()
-
+    
 if __name__ == '__main__':
     image_processing()  
     video_processing()  

@@ -1,19 +1,18 @@
 import cv2
 import time
-import matplotlib.pyplot as plt
 
 def image_processing():
 
     img = cv2.imread('variant-9.png')
     layer = img.copy()
+    gp = [layer]
 
     for i in range(4):
-        plt.subplot(2, 2, i + 1)
         layer = cv2.pyrDown(layer)
-        plt.imshow(layer)
-        cv2.imshow("str(i)", layer)
+        gp.append(layer)
+        cv2.imshow(str(i), layer)
 
-        cv2.waitKey(0)
+    cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 def video_processing():

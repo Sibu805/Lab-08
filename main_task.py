@@ -1,9 +1,11 @@
+'''код отображает пирамиду изображений
+   код использует камеру для захвата поверхности с надписью и реализации алгоритма ее отслеживания.
+   он выводит на консоль среднюю координату для текущего сеанса работы программы.'''
+
 import cv2
-import time
 
 def image_processing():
 
-    img = cv2.imread('variant-9.png')
     layer = img.copy()
     gp = [layer]
 
@@ -17,54 +19,78 @@ def image_processing():
 
 def video_processing():
 
-    cap = cv2.VideoCapture(0)  
-    down_points = (640, 480) 
-    i = 0 
+    obj_img = cv2.imread('variant-9.png', cv2.IMREAD_GRAYSCALE)
+    obj_height, obj_width = obj_img.shape
 
-    total_x = 0
-    total_y = 0
-    count = 0
+    total_x, total_y, count = 0, 0, 0
+    similarity_thres = 0.2  
+
+    cap = cv2.VideoCapture(0)
 
     while True:
         ret, frame = cap.read()
         if not ret:
+            print("Error")
             break
 
-        frame = cv2.resize(frame, down_points, interpolation=cv2.INTER_LINEAR)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  
-        gray = cv2.GaussianBlur(gray, (21, 21), 0)
-        ret, thresh = cv2.threshold(gray, 110, 255, cv2.THRESH_BINARY_INV)
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        result = cv2.matchTemplate(gray_frame, obj_img, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
 
-        contours, __ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        if max_val >= similarity_thres:
+            top_left = max_loc
+            bottom_right = (top_left[0] + obj_width, top_left[1] + obj_height)
 
-        if len(contours):
-            c = max(contours, key=cv2.contourArea)  
-            x, y, w, h = cv2.boundingRect(c) 
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2) 
+            roi = gray_frame[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
 
-            a, b = x + (w // 2), y + (h // 2)
-            print(f'Tracked Coordinate: ({a}, {b})')
+            _, binary_roi = cv2.threshold(roi, 127, 255, cv2.THRESH_BINARY)
+            contours, _ = cv2.findContours(binary_roi, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-            total_x += a
-            total_y += b
-            count += 1
+            if contours:
+                largest_contour = max(contours, key=cv2.contourArea)
+                x, y, w, h = cv2.boundingRect(largest_contour)
 
-            if count > 0 and i % 10 == 0:
-                avg_x = total_x // count
-                avg_y = total_y // count
-                print(f'\033[31mAverage Coordinate: ({avg_x}, {avg_y})\033[0m]')
+                adjusted_top_left = (top_left[0] + x, top_left[1] + y)
+                adjusted_bottom_right = (adjusted_top_left[0] + w, adjusted_top_left[1] + h)
+                
+                #Вычислите центр ограничивающего прямоугольника
+                center_x = adjusted_top_left[0] + w // 2
+                center_y = adjusted_top_left[1] + h // 2
+                total_x += center_x
+                total_y += center_y
+                count += 1
 
-        cv2.imshow('Tracking', frame)
+                #нарисуйте прямоугольник и обведите соответствующую область
+                cv2.rectangle(frame, adjusted_top_left, adjusted_bottom_right, (0, 255, 0), 2)
+                cv2.circle(frame, (center_x, center_y), 5, (0, 0, 255), -1)
+            else:
+                center_x = top_left[0] + obj_width // 2
+                center_y = top_left[1] + obj_height // 2
 
+                total_x += center_x
+                total_y += center_y
+                count += 1
+                cv2.rectangle(frame, top_left, bottom_right, (0, 255, 0), 2)
+                cv2.circle(frame, (center_x, center_y), 5, (0, 0, 255), -1)
+        else:
+            cv2.putText(frame, "No match found", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+        cv2.imshow("Object Tracking", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-        time.sleep(0.1)  
-        i += 1
+    if count > 0:
+        avg_x = total_x / count
+        avg_y = total_y / count
+        print(f"Average coordinates: ({round(avg_x, 2)}, {round(avg_y, 2)})")
+    else:
+        print("No valid matches found")
 
     cap.release()
     cv2.destroyAllWindows()
-    
+
 if __name__ == '__main__':
+
+    img = cv2.imread('variant-9.png')
     image_processing()  
     video_processing()  
